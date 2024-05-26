@@ -1,9 +1,12 @@
-Projeto de Linguagem de Programação I. Ciência da Computação, Universidade Estadual da Paraíba
+Projeto de Linguagem de Programação I
+Ciência da Computação, Universidade Estadual da Paraíba
+
 Autor(a): Ivone Maria Ferreira
 
 Sistema de Controle de Medicamentos
 Descrição do Projeto:
-Este projeto foi desenvolvido como parte da disciplina de Linguagem de Programação I do curso de Ciências da Computação. A ideia surgiu a partir de uma necessidade real de controle de estoque de medicamentos, permitindo um melhor gerenciamento e organização dos mesmos, além de assegurar que as dosagens sejam administradas nos horários corretos.
+Este projeto foi desenvolvido como parte da disciplina de Linguagem de Programação I do curso de Ciências da Computação.
+A ideia surgiu a partir de uma necessidade real de controle de estoque de medicamentos, permitindo um melhor gerenciamento e organização dos mesmos, além de assegurar que as dosagens sejam administradas nos horários corretos.
 
 Funcionalidades:
 Cadastro de Medicamentos
