@@ -121,14 +121,100 @@ void registrarHorarioDosagem(int medicamento_id) {
     }
 }
 
+void registrarDoseTomada(int medicamento_id) {
+    int doseTomada;
+
+    printf("Você tomou a dose? (1 para Sim, 2 para Não): ");
+    scanf("%d", &doseTomada);
+    getchar();
+
+    if (doseTomada == 1) {
+        char sql[1000];
+        sprintf(sql, "UPDATE medicamentos SET quantidade = quantidade - 1 WHERE id = %d;", medicamento_id);
+
+        char *errMsg = 0;
+        int rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
+        if (rc != SQLITE_OK) {
+            fprintf(stderr, "Erro ao atualizar a quantidade de medicamento: %s\n", errMsg);
+            sqlite3_free(errMsg);
+        } else {
+            printf("A quantidade de medicamento foi atualizada com sucesso!\n");
+        }
+    } else if (doseTomada == 2) {
+        printf("A dose não foi tomada.\n");
+    } else {
+        printf("Opção inválida!\n");
+    }
+}
+
+void visualizarMedicamentos() {
+    sqlite3 *db;
+    sqlite3_stmt *res;
+    int rc;
+
+    rc = sqlite3_open("medicamentos.db", &db);
+
+    if (rc != SQLITE_OK) {
+        printf("Não foi possível abrir o banco de dados: %s\n", sqlite3_errmsg(db));
+        return;
+    }
+
+    rc = sqlite3_prepare_v2(db, "SELECT id, nome FROM Medicamentos", -1, &res, 0);
+
+    if (rc != SQLITE_OK) {
+        printf("Falha na preparação da declaração: %s\n", sqlite3_errmsg(db));
+        return;
+    }
+
+    printf("Medicamentos:\n");
+
+    while (sqlite3_step(res) == SQLITE_ROW) {
+        printf("%d: %s\n", sqlite3_column_int(res, 0), sqlite3_column_text(res, 1));
+    }
+
+    sqlite3_finalize(res);
+    sqlite3_close(db);
+}
+
+
 int main() {
-    abrirBancoDeDados();
-    criarTabelaMedicamentos();
-    criarTabelaHorariosDosagem();
+   int opcao, medicamento_id;
 
-    // Exemplo de uso
-    cadastrarMedicamento();
+   abrirBancoDeDados();
+   criarTabelaMedicamentos();
+   criarTabelaHorariosDosagem();
 
-    fecharBancoDeDados();
-    return 0;
+   do {
+       printf("\n1. Cadastrar Medicamento\n");
+       printf("2. Registrar dose tomada\n");
+       printf("3. Visualizar Medicamentos\n");
+       printf("4. Sair\n");
+       printf("Escolha uma opção: ");
+       scanf("%d", &opcao);
+       getchar();
+
+       switch (opcao) {
+           case 1:
+               cadastrarMedicamento();
+               break;
+           case 2:
+               printf("Digite o ID do medicamento: ");
+               scanf("%d", &medicamento_id);
+               getchar();
+               registrarDoseTomada(medicamento_id);
+               break;
+           case 3:
+               visualizarMedicamentos();
+               break;
+           case 4:
+               printf("Saindo...\n");
+               break;
+           default:
+               printf("Opção inválida!\n");
+       }
+   } while (opcao != 4);
+
+   fecharBancoDeDados();
+
+   return 0;
 }
