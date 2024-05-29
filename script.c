@@ -20,20 +20,21 @@ void fecharBancoDeDados() {
 }
 
 void criarTabelaMedicamentos() {
-    char *sql = "CREATE TABLE IF NOT EXISTS medicamentos ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                "nome TEXT NOT NULL,"
-                "dosagem INTEGER NOT NULL,"
-                "quantidade INTEGER NOT NULL,"
-                "validade TEXT NOT NULL"
-                ");";
-
     char *errMsg = 0;
+    char *sql = "CREATE TABLE IF NOT EXISTS medicamentos("  \
+                "id INTEGER PRIMARY KEY AUTOINCREMENT," \
+                "nome TEXT NOT NULL," \
+                "dosagem INT NOT NULL," \
+                "quantidade INT NOT NULL," \
+                "estoque_inicial INT NOT NULL);";
+
     int rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
+
     if (rc != SQLITE_OK) {
-        fprintf(stderr, "Erro ao criar a tabela de medicamentos: %s\n", errMsg);
+        fprintf(stderr, "Erro ao criar tabela: %s\n", errMsg);
         sqlite3_free(errMsg);
-        exit(1);
+    } else {
+        printf("Tabela criada com sucesso ou já existe\n");
     }
 }
 
@@ -56,6 +57,34 @@ void criarTabelaHorariosDosagem() {
 }
 void registrarHorarioDosagem(int medicamento_id);
 
+void alertaEstoque() {
+    sqlite3 *db;
+    sqlite3_stmt *res;
+    int rc;
+
+    rc = sqlite3_open("medicamentos.db", &db);
+
+    if (rc != SQLITE_OK) {
+        printf("Não foi possível abrir o banco de dados: %s\n", sqlite3_errmsg(db));
+        return;
+    }
+
+    char *sql = "SELECT nome, quantidade, estoque_inicial FROM medicamentos WHERE quantidade < (estoque_inicial / 2);";
+    rc = sqlite3_prepare_v2(db, sql, -1, &res, 0);
+
+    if (rc != SQLITE_OK) {
+        printf("Falha ao buscar dados: %s\n", sqlite3_errmsg(db));
+        return;
+    }
+
+    while (sqlite3_step(res) == SQLITE_ROW) {
+        printf("\nAlerta Crítico de Estoque para o medicamento: %s\n", sqlite3_column_text(res, 0));
+    }
+
+    sqlite3_finalize(res);
+    sqlite3_close(db);
+}
+
 void cadastrarMedicamento() {
     char nome[50];
     int dosagem, quantidade;
@@ -73,13 +102,9 @@ void cadastrarMedicamento() {
     scanf("%d", &quantidade);
     getchar();
 
-    printf("Data de Validade (dd/mm/aaaa): ");
-    fgets(validade, sizeof(validade), stdin);
-    validade[strcspn(validade, "\n")] = 0;
-
     char sql[1000];
-    sprintf(sql, "INSERT INTO medicamentos (nome, dosagem, quantidade, validade) "
-                 "VALUES ('%s', %d, %d, '%s');", nome, dosagem, quantidade, validade);
+    sprintf(sql, "INSERT INTO medicamentos (nome, dosagem, quantidade, estoque_inicial) "
+                 "VALUES ('%s', %d, %d, %d);", nome, dosagem, quantidade, quantidade);
 
     char *errMsg = 0;
     int rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
@@ -145,6 +170,7 @@ void registrarDoseTomada(int medicamento_id) {
     } else {
         printf("Opção inválida!\n");
     }
+    alertaEstoque();
 }
 
 void visualizarMedicamentos() {
@@ -185,6 +211,7 @@ int main() {
    criarTabelaHorariosDosagem();
 
    do {
+
        printf("\n1. Cadastrar Medicamento\n");
        printf("2. Registrar dose tomada\n");
        printf("3. Visualizar Medicamentos\n");
