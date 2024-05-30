@@ -1,0 +1,21 @@
+Estoque Atual de Medicamentos:
+Nome,Quantidade Atual
+Dipirona,14
+Rivotril,29
+
+Resumo de Consumo:
+Nome,Total Dosagem
+Dipirona,14
+Rivotril,1450
+
+Estatísticas de Utilização:
+Média de Consumo Diário,732.00
+Média de Consumo Semanal,1464.00
+Média de Consumo Mensal,1464.00
+Medicamento Mais Utilizado,i\<U�|�,1450
+Medicamento Menos Utilizado,i\<U�|�,14
+
+Informações sobre Medicamentos:
+Nome,Dosagem (mg),Quantidade,Estoque Inicial,Hora da Dosagem,Hora da Dose Tomada
+Rivotril,50,29,30,19:30,20:30
+Dipirona,1,14,15,17:30,20:30

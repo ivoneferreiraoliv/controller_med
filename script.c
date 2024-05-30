@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <sqlite3.h>
 #include "database.h"
+#include "relatorios.h"
 
 #define DATABASE_FILE "medicamentos.db"
 
@@ -13,7 +14,9 @@ void criarTabelaMedicamentos() {
                 "nome TEXT NOT NULL," \
                 "dosagem INT NOT NULL," \
                 "quantidade INT NOT NULL," \
-                "estoque_inicial INT NOT NULL);";
+                "estoque_inicial INT NOT NULL," \
+                "hora_dosagem TEXT NOT NULL," \
+                "hora_dose_tomada TEXT);";
 
     int rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
 
@@ -25,23 +28,6 @@ void criarTabelaMedicamentos() {
     }
 }
 
-void criarTabelaHorariosDosagem() {
-    char *sql = "CREATE TABLE IF NOT EXISTS horarios_dosagem ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT,"
-                "medicamento_id INTEGER NOT NULL,"
-                "hora INTEGER NOT NULL,"
-                "minuto INTEGER NOT NULL,"
-                "FOREIGN KEY (medicamento_id) REFERENCES medicamentos(id)"
-                ");";
-
-    char *errMsg = 0;
-    int rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
-    if (rc != SQLITE_OK) {
-        fprintf(stderr, "Erro ao criar a tabela de horários de dosagem: %s\n", errMsg);
-        sqlite3_free(errMsg);
-        exit(1);
-    }
-}
 
 typedef struct {
     int id;
@@ -50,7 +36,6 @@ typedef struct {
     int quantidade;
 } Medicamento;
 
-void registrarHorarioDosagem(int medicamento_id);
 
 void alertaEstoque() {
     sqlite3 *db;
@@ -81,25 +66,28 @@ void alertaEstoque() {
 }
 
 void cadastrarMedicamento() {
-    char nome[50];
-    int dosagem, quantidade;
+    char nome[100];
+    int quantidade, dosagem;
+    int hora, minuto;
 
-    printf("Nome do Medicamento: ");
-    fgets(nome, sizeof(nome), stdin);
-    nome[strcspn(nome, "\n")] = 0;
+    printf("Digite o nome do medicamento: ");
+    fgets(nome, 100, stdin);
+    nome[strcspn(nome, "\n")] = 0;  // remove o '\n' do final
 
-    printf("Dosagem (mg): ");
-    scanf("%d", &dosagem);
-    getchar();
-
-    printf("Quantidade em Estoque: ");
+    printf("Digite a quantidade do medicamento: ");
     scanf("%d", &quantidade);
     getchar();
 
-    char sql[1000];
-    sprintf(sql, "INSERT INTO medicamentos (nome, dosagem, quantidade, estoque_inicial) "
-                 "VALUES ('%s', %d, %d, %d);", nome, dosagem, quantidade, quantidade);
+    printf("Digite a dosagem do medicamento (em mg): ");
+    scanf("%d", &dosagem);
+    getchar();
 
+    printf("Digite a hora da dosagem (formato 24h): ");
+    scanf("%d:%d", &hora, &minuto);
+    getchar();
+
+    char sql[1000];
+    sprintf(sql, "INSERT INTO medicamentos (nome, quantidade, dosagem, hora_dosagem, estoque_inicial) VALUES ('%s', %d, %d, '%02d:%02d', %d);", nome, quantidade, dosagem, hora, minuto, quantidade);
     char *errMsg = 0;
     int rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
     if (rc != SQLITE_OK) {
@@ -107,57 +95,33 @@ void cadastrarMedicamento() {
         sqlite3_free(errMsg);
     } else {
         printf("Medicamento cadastrado com sucesso!\n");
-
-        // Exemplo de chamada para registrar horários de dosagem
-        int medicamento_id = sqlite3_last_insert_rowid(db);
-        registrarHorarioDosagem(medicamento_id);
     }
 }
 
-
-void registrarHorarioDosagem(int medicamento_id) {
-    int hora, minuto;
-
-    printf("Hora do Horário de Dosagem (0-23): ");
-    scanf("%d", &hora);
-    getchar();
-
-    printf("Minuto do Horário de Dosagem (0-59): ");
-    scanf("%d", &minuto);
-    getchar();
-
-    char sql[1000];
-    sprintf(sql, "INSERT INTO horarios_dosagem (medicamento_id, hora, minuto) "
-                 "VALUES (%d, %d, %d);", medicamento_id, hora, minuto);
-
-    char *errMsg = 0;
-    int rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
-    if (rc != SQLITE_OK) {
-        fprintf(stderr, "Erro ao registrar horário de dosagem: %s\n", errMsg);
-        sqlite3_free(errMsg);
-    } else {
-        printf("Horário de dosagem registrado com sucesso!\n");
-    }
-}
 
 void registrarDoseTomada(int medicamento_id) {
     int doseTomada;
+    int hora, minuto;
 
     printf("Você tomou a dose? (1 para Sim, 2 para Não): ");
     scanf("%d", &doseTomada);
     getchar();
 
     if (doseTomada == 1) {
+        printf("Digite a hora em que a dose foi tomada (formato 24h): ");
+        scanf("%d:%d", &hora, &minuto);
+        getchar();
+
         char sql[1000];
-        sprintf(sql, "UPDATE medicamentos SET quantidade = quantidade - 1 WHERE id = %d;", medicamento_id);
+        sprintf(sql, "UPDATE medicamentos SET hora_dose_tomada = '%02d:%02d', quantidade = quantidade - 1 WHERE id = %d;", hora, minuto, medicamento_id);
 
         char *errMsg = 0;
         int rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
         if (rc != SQLITE_OK) {
-            fprintf(stderr, "Erro ao atualizar a quantidade de medicamento: %s\n", errMsg);
+            fprintf(stderr, "Erro ao registrar a dose tomada: %s\n", errMsg);
             sqlite3_free(errMsg);
         } else {
-            printf("A quantidade de medicamento foi atualizada com sucesso!\n");
+            printf("A dose tomada foi registrada com sucesso!\n");
         }
     } else if (doseTomada == 2) {
         printf("A dose não foi tomada.\n");
@@ -322,60 +286,63 @@ int main() {
 
    abrirBancoDeDados();
    criarTabelaMedicamentos();
-   criarTabelaHorariosDosagem();
 
-    do {
-        printf("\n1. Cadastrar Medicamento\n");
-        printf("2. Registrar dose tomada\n");
-        printf("3. Visualizar Medicamentos\n");
-        printf("4. Editar Medicamento\n");
-        printf("5. Apagar Medicamento\n");
-        printf("6. Buscar Medicamento\n");
-        printf("7. Sair\n");
-        printf("Escolha uma opção: ");
-        scanf("%d", &opcao);
-        getchar();
+do {
+    printf("\n1. Cadastrar Medicamento\n");
+    printf("2. Registrar dose tomada\n");
+    printf("3. Visualizar Medicamentos\n");
+    printf("4. Editar Medicamento\n");
+    printf("5. Apagar Medicamento\n");
+    printf("6. Buscar Medicamento\n");
+    printf("7. Gerar relatório de uso\n");
+    printf("8. Sair\n");
+    printf("Escolha uma opção: ");
+    scanf("%d", &opcao);
+    getchar();
 
-        switch (opcao) {
-           case 1:
-               cadastrarMedicamento();
-               num_medicamentos = buscarTodosMedicamentos(medicamentos);
-               break;
-           case 2:
-               printf("Digite o ID do medicamento: ");
-               scanf("%d", &medicamento_id);
-               getchar();
-               registrarDoseTomada(medicamento_id);
-               break;
-           case 3:
-               visualizarMedicamentos();
-               break;
-           case 4:
-                printf("Digite o ID do medicamento a ser editado: ");
-                scanf("%d", &medicamento_id);
-                getchar();
-                editarMedicamento(medicamento_id);
-                break;
-            case 5:
-                printf("Digite o ID do medicamento a ser apagado: ");
-                scanf("%d", &medicamento_id);
-                getchar();
-                apagarMedicamento(medicamento_id);
-                break;
-                case 6:
-                char consulta[100];
-                printf("Digite o nome do medicamento a ser buscado: ");
-                fgets(consulta, 100, stdin);
-                consulta[strcspn(consulta, "\n")] = 0; // Remove o '\n' do final
-                Medicamento* medicamento = buscarMedicamento(medicamentos, num_medicamentos, consulta);
-                if (medicamento != NULL) {
-                    printf("Medicamento encontrado: %s\n", medicamento->nome);
-                } else {
-                    printf("Medicamento não encontrado.\n");
-                }
-                break;
-        }
-    } while (opcao != 7);
+    switch (opcao) {
+        case 1:
+            cadastrarMedicamento();
+            num_medicamentos = buscarTodosMedicamentos(medicamentos);
+            break;
+        case 2:
+            printf("Digite o ID do medicamento: ");
+            scanf("%d", &medicamento_id);
+            getchar();
+            registrarDoseTomada(medicamento_id);
+            break;
+        case 3:
+            visualizarMedicamentos();
+            break;
+        case 4:
+            printf("Digite o ID do medicamento a ser editado: ");
+            scanf("%d", &medicamento_id);
+            getchar();
+            editarMedicamento(medicamento_id);
+            break;
+        case 5:
+            printf("Digite o ID do medicamento a ser apagado: ");
+            scanf("%d", &medicamento_id);
+            getchar();
+            apagarMedicamento(medicamento_id);
+            break;
+        case 6:
+            char consulta[100];
+            printf("Digite o nome do medicamento a ser buscado: ");
+            fgets(consulta, 100, stdin);
+            consulta[strcspn(consulta, "\n")] = 0; // Remove o '\n' do final
+            Medicamento* medicamento = buscarMedicamento(medicamentos, num_medicamentos, consulta);
+            if (medicamento != NULL) {
+                printf("Medicamento encontrado: %s\n", medicamento->nome);
+            } else {
+                printf("Medicamento não encontrado.\n");
+            }
+            break;
+        case 7:
+            gerarRelatorioDeUtilizacao();
+            break;
+    }
+} while (opcao != 8);
 
    fecharBancoDeDados();
 
