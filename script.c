@@ -339,7 +339,7 @@ Medicamento* buscarMedicamento(Medicamento* medicamentos, int num_medicamentos, 
         printf("Quantidade em estoque: %d\n", medicamentos[0].quantidade);
         return &medicamentos[0]; // Base case: se o nome do primeiro medicamento contém a consulta, retorne esse medicamento
     } else {
-        return buscarMedicamento(medicamentos + 1, num_medicamentos - 1, consulta); // Recursive case: chame a função recursivamente com o restante da lista
+        return buscarMedicamento(medicamentos + 1, num_medicamentos - 1, consulta); 
     }
 }
 

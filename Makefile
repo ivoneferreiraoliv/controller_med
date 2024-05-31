@@ -1,7 +1,7 @@
 # Definições
 CC = gcc
 CFLAGS = -Iinclude -Wall
-LDFLAGS = -lsqlite3
+LDFLAGS = -lsqlite3 -lhpdf
 SRC = $(wildcard src/*.c) script.c
 OBJ = $(SRC:.c=.o)
 EXEC = sistema
