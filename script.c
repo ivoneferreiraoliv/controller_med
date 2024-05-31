@@ -7,6 +7,27 @@
 
 #define DATABASE_FILE "medicamentos.db"
 
+//estrutura de um usuário
+typedef struct {
+    int id;
+    char nome[100];
+    char email[100];
+    char senha[100];
+} Usuario;
+
+//estrutura de um medicamento
+typedef struct {
+    int id;
+    char nome[100];
+    int dosagem;
+    int quantidade;
+} Medicamento;
+
+void limparBuffer() {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
 void criarTabelaMedicamentos() {
     char *errMsg = 0;
     char *sql = "CREATE TABLE IF NOT EXISTS medicamentos("  \
@@ -28,14 +49,126 @@ void criarTabelaMedicamentos() {
     }
 }
 
+void criarTabelaUsuarios() {
+    sqlite3* db;
+    char* errMsg = 0;
+    int rc;
 
-typedef struct {
-    int id;
-    char nome[100];
-    int dosagem;
-    int quantidade;
-} Medicamento;
+    rc = sqlite3_open("medicamentos.db", &db);
 
+    if (rc) {
+        fprintf(stderr, "Não foi possível abrir o banco de dados: %s\n", sqlite3_errmsg(db));
+        return;
+    } else {
+        fprintf(stderr, "Banco de dados aberto com sucesso\n");
+    }
+
+    char* sql = "CREATE TABLE IF NOT EXISTS Usuarios("  \
+                "ID INT PRIMARY KEY     NOT NULL," \
+                "NOME           TEXT    NOT NULL," \
+                "EMAIL          TEXT    NOT NULL," \
+                "SENHA          TEXT    NOT NULL);";
+
+    rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
+
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "SQL error: %s\n", errMsg);
+        sqlite3_free(errMsg);
+    } else {
+        fprintf(stdout, "Tabela criada com sucesso ou já existe\n");
+    }
+
+    sqlite3_close(db);
+}
+
+void inserirUsuario(Usuario usuario);
+
+void inserirUsuario(Usuario usuario) {
+    sqlite3* db;
+    char* errMsg = 0;
+    int rc;
+
+    rc = sqlite3_open("medicamentos.db", &db);
+
+    if (rc) {
+        fprintf(stderr, "Não foi possível abrir o banco de dados: %s\n", sqlite3_errmsg(db));
+        return;
+    } else {
+        fprintf(stderr, "Banco de dados aberto com sucesso\n");
+    }
+
+    char sql[500];
+    sprintf(sql, "INSERT INTO Usuarios (ID,NOME,EMAIL,SENHA) "  \
+                 "VALUES (%d, '%s', '%s', '%s' );", 
+                 usuario.id, usuario.nome, usuario.email, usuario.senha);
+
+    rc = sqlite3_exec(db, sql, 0, 0, &errMsg);
+
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "SQL error: %s\n", errMsg);
+        sqlite3_free(errMsg);
+    } else {
+        fprintf(stdout, "Usuário inserido com sucesso\n");
+    }
+
+    sqlite3_close(db);
+}
+
+int fazerLogin() {
+    char email[100];
+    char senha[100];
+
+    printf("Digite o email: ");
+    fgets(email, 100, stdin);
+    email[strcspn(email, "\n")] = 0; // Remove o '\n' do final
+
+    printf("Digite a senha: ");
+    fgets(senha, 100, stdin);
+    senha[strcspn(senha, "\n")] = 0; // Remove o '\n' do final
+
+    sqlite3* db;
+    char *errMsg = 0;
+    int rc;
+
+    rc = sqlite3_open("medicamentos.db", &db);
+
+    if (rc) {
+        fprintf(stderr, "Não foi possível abrir o banco de dados: %s\n", sqlite3_errmsg(db));
+        return 0;
+    }
+
+    char sql[256];
+    sprintf(sql, "SELECT * FROM Usuarios WHERE EMAIL='%s' AND SENHA='%s'", email, senha);
+    // printf("Executando consulta SQL: %s\n", sql);
+
+    sqlite3_stmt *stmt;
+    rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+
+    if (rc != SQLITE_OK) {
+        fprintf(stderr, "Falha na preparação: %s\n", sqlite3_errmsg(db));
+        sqlite3_close(db);
+        return 0;
+    }
+
+    rc = sqlite3_step(stmt);
+
+    if (rc == SQLITE_ROW) {
+        fprintf(stdout, "Login bem-sucedido\n");
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        return 1;
+    } else if (rc == SQLITE_DONE) {
+        fprintf(stdout, "Falha no login. Tente novamente.\n");
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        return 0;
+    } else {
+        fprintf(stderr, "SQL error: %s\n", sqlite3_errmsg(db));
+        sqlite3_finalize(stmt);
+        sqlite3_close(db);
+        return 0;
+    }
+}
 
 void alertaEstoque() {
     sqlite3 *db;
@@ -279,72 +412,115 @@ void apagarMedicamento(int medicamento_id) {
 
 
 int main() {
-   int opcao, medicamento_id;
-
+    int opcao;
+    int autenticado = 0;
+    int medicamento_id;
     Medicamento medicamentos[100]; // Array para armazenar os medicamentos
-    int num_medicamentos = buscarTodosMedicamentos(medicamentos); // Preenche o array com os medicamentos do banco de dados
 
-   abrirBancoDeDados();
-   criarTabelaMedicamentos();
+    abrirBancoDeDados();
+    criarTabelaMedicamentos();
+    criarTabelaUsuarios();
 
-do {
-    printf("\n1. Cadastrar Medicamento\n");
-    printf("2. Registrar dose tomada\n");
-    printf("3. Visualizar Medicamentos\n");
-    printf("4. Editar Medicamento\n");
-    printf("5. Apagar Medicamento\n");
-    printf("6. Buscar Medicamento\n");
-    printf("7. Gerar relatório de uso\n");
-    printf("8. Sair\n");
-    printf("Escolha uma opção: ");
-    scanf("%d", &opcao);
-    getchar();
+    do {
+        printf("1- Registrar 2- Login 3- Sair: ");
+        scanf("%d", &opcao);
+        while ((getchar()) != '\n');
 
-    switch (opcao) {
-        case 1:
-            cadastrarMedicamento();
-            num_medicamentos = buscarTodosMedicamentos(medicamentos);
-            break;
-        case 2:
-            printf("Digite o ID do medicamento: ");
-            scanf("%d", &medicamento_id);
+        switch (opcao) {
+            case 1:
+                Usuario usuario;
+            printf("Digite o ID do usuário: ");
+            scanf("%d", &usuario.id);
             getchar();
-            registrarDoseTomada(medicamento_id);
-            break;
-        case 3:
-            visualizarMedicamentos();
-            break;
-        case 4:
-            printf("Digite o ID do medicamento a ser editado: ");
-            scanf("%d", &medicamento_id);
-            getchar();
-            editarMedicamento(medicamento_id);
-            break;
-        case 5:
-            printf("Digite o ID do medicamento a ser apagado: ");
-            scanf("%d", &medicamento_id);
-            getchar();
-            apagarMedicamento(medicamento_id);
-            break;
-        case 6:
-            char consulta[100];
-            printf("Digite o nome do medicamento a ser buscado: ");
-            fgets(consulta, 100, stdin);
-            consulta[strcspn(consulta, "\n")] = 0; // Remove o '\n' do final
-            Medicamento* medicamento = buscarMedicamento(medicamentos, num_medicamentos, consulta);
-            if (medicamento != NULL) {
-                printf("Medicamento encontrado: %s\n", medicamento->nome);
-            } else {
-                printf("Medicamento não encontrado.\n");
-            }
-            break;
-        case 7:
-            gerarRelatorioDeUtilizacao();
-            break;
-    }
-} while (opcao != 8);
 
-   fecharBancoDeDados();
+            printf("Digite o nome do usuário: ");
+            fgets(usuario.nome, 100, stdin);
+            usuario.nome[strcspn(usuario.nome, "\n")] = 0; // Remove o '\n' do final
 
-   return 0;
+            printf("Digite o email do usuário: ");
+            fgets(usuario.email, 100, stdin);
+            usuario.email[strcspn(usuario.email, "\n")] = 0; // Remove o '\n' do final
+
+            printf("Digite a senha do usuário: ");
+            fgets(usuario.senha, 100, stdin);
+            usuario.senha[strcspn(usuario.senha, "\n")] = 0; // Remove o '\n' do final
+
+            inserirUsuario(usuario);
+            
+            break;
+            
+            case 2:
+                autenticado = fazerLogin();
+                if (autenticado) {
+                    int num_medicamentos = buscarTodosMedicamentos(medicamentos); // Preenche o array com os medicamentos do banco de dados
+
+                    do {
+                        printf("\n1. Cadastrar Medicamento\n");
+                        printf("2. Registrar dose tomada\n");
+                        printf("3. Visualizar Medicamentos\n");
+                        printf("4. Editar Medicamento\n");
+                        printf("5. Apagar Medicamento\n");
+                        printf("6. Buscar Medicamento\n");
+                        printf("7. Gerar relatório de uso\n");
+                        printf("8. Sair\n");
+                        printf("Escolha uma opção: ");
+                        scanf("%d", &opcao);
+                        getchar();
+
+                        switch (opcao) {
+                            case 1:
+                            cadastrarMedicamento();
+                            num_medicamentos = buscarTodosMedicamentos(medicamentos);
+                            break;
+                        case 2:
+                            printf("Digite o ID do medicamento: ");
+                            scanf("%d", &medicamento_id);
+                            getchar();
+                            registrarDoseTomada(medicamento_id);
+                            break;
+                        case 3:
+                            visualizarMedicamentos();
+                            break;
+                        case 4:
+                            printf("Digite o ID do medicamento a ser editado: ");
+                            scanf("%d", &medicamento_id);
+                            getchar();
+                            editarMedicamento(medicamento_id);
+                            break;
+                        case 5:
+                            printf("Digite o ID do medicamento a ser apagado: ");
+                            scanf("%d", &medicamento_id);
+                            getchar();
+                            apagarMedicamento(medicamento_id);
+                            break;
+                        case 6:
+                            char consulta[100];
+                            printf("Digite o nome do medicamento a ser buscado: ");
+                            fgets(consulta, 100, stdin);
+                            consulta[strcspn(consulta, "\n")] = 0; // Remove o '\n' do final
+                            Medicamento* medicamento = buscarMedicamento(medicamentos, num_medicamentos, consulta);
+                            if (medicamento != NULL) {
+                                printf("Medicamento encontrado: %s\n", medicamento->nome);
+                            } else {
+                                printf("Medicamento não encontrado.\n");
+                            }
+                            break;
+                        case 7:
+                            gerarRelatorioDeUtilizacao();
+                            break;
+                        }
+                    } while (opcao != 8);
+                } else {
+                    printf("Falha no login. Tente novamente.\n");
+                }
+                break;
+            case 3:
+                fecharBancoDeDados();
+                return 0;
+        }
+    } while (opcao != 3);
+
+    fecharBancoDeDados();
+
+    return 0;
 }
